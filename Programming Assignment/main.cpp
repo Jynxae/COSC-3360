@@ -7,32 +7,35 @@
 #include <unordered_map>
 using namespace std;
 
-struct datA{
+struct ThreadArgs{
     node* root;
-    string symbol;          //found out how to pass multiple arguments into a thread function like this from stack overflow and https://w3.cs.jmu.edu/
+    string binaryCode;          //found out how to pass multiple arguments into a thread function like this from stack overflow and https://w3.cs.jmu.edu/
     vector<int> position;
-    vector<char> message;
+    vector<char> message;       //changed to vector, messy to deal with as string. can just print out indexes with no spaces
 };
 
 void* threadFunction(void* args) //here is where we actually decode
 {
-    datA* arg = (datA*) args;
+    ThreadArgs* arg = (ThreadArgs*) args;
 
     node* curr = arg->root;
-    for(auto x : arg->symbol)
+    for (int x = 0; x < arg->binaryCode.length(); x++)  //traverse the BINARY SYMBOL string, character by character.
     {
-        if( x == '0')
+        if (arg->binaryCode[x] == '0')
         {
             curr = curr->left;
         }
-        else if(x == '1')
+        else if (arg->binaryCode[x] == '1')
         {
             curr = curr->right;
         }
     }
-    for(auto x : arg->position)
+
+    char letterResult = curr->let;  //gives me the final letter of the node i landed on from above^^
+
+    for(int x = 0; x < arg->position.size(); x++)
     {
-        arg->message.at(x) = curr->let;
+        arg->message.at(arg->position.at(x)) = letterResult;
     }
     return NULL;
 }
@@ -47,10 +50,12 @@ int main(int argc, char *argv[])
     ifstream cfin("cInput1");
     char let;
     int num, freq;
+    int mSize = 0;
+    string binary = ""; 
     unordered_map<char,int> input;
     unordered_map<int, vector<int>> code;
-    
-    int mSize = 0;
+    static vector<pthread_t> th (mSize);    //remove static if it messes with code possibly
+    static vector<ThreadArgs*> passer;
 
     while(getline(fin,line))
     {
@@ -59,43 +64,68 @@ int main(int argc, char *argv[])
         input[let] = num;
         mSize += line[2] - 48; //plus the frequency
     }
-    vector<pthread_t> th (mSize);
-    vector<char> message (mSize);
+
     huffmanTree call;
+    vector<char> message (mSize);       //DECLARE VECTOR HERE INSTEAD AND KEEP MSIZE UP TOP. Since im still adjusting size. Do not give size to the vector until its the final size
     node * root = call.codeHuffmanTree(input);
     call.print(root, "");
+    cout << endl;
 
-    string binary = ""; 
     while(getline(cfin,line))
     {
-        stringstream str(line);
-        str >> binary;
+        pthread_t thread1;      //decalring a new thread each time i get a line
+        ThreadArgs* argument = new ThreadArgs();
+        argument->root = root;
+        argument->message = message;
+        stringstream str(line);     //stringstream allows me to read in individual values after i getline, REMEMBER TO USE IN FUTURE ASSIGNMENTS!!!!!
+
+        str >> binary;  //after i read in a whole line, str allows me to read one at a time.
         vector<int> spot;
         int value;
         while(str >> value) {
             spot.push_back(value);
         }
-        pthread_t thread1;      //decalring a new thread each time i get a line
-        datA *d = new datA();
-        d->root = root;
-        d->symbol = binary;
-        d->position = spot;
-        d->message = message;
 
-        pthread_create(&thread1, NULL, threadFunction, (void*) d);
+        argument->binaryCode = binary;
+        argument->position = spot;
+
+        pthread_create(&thread1, NULL, threadFunction, (void*) argument);
+        passer.push_back(argument);     
         th.push_back(thread1);
     }
-    cout << "done";
-    for(int x = 0; x < th.size(); x++){
+
+    for(int x = 0; x < th.size(); x++){     //referenced from rincons code
             pthread_join(th.at(x),NULL);
     }
 
-    //add another for loop here for something??
 
-    for(int x = 0; th.size(); x++)
+
+    //add another for loop here for something??
+    // for(int arg = 0; x < passer.size(); arg++)
+    // {
+    //     for(int spot = 0; spot < arg->position.size(); spot++)
+    //     {
+    //         message.at(spot) = arg->message.at(spot);
+    //     }
+    // }
+
+    for(auto arg : passer)      //basically arg takes the value of the first value of passer and when it loops again, it takes the next value
     {
-        cout << th.at(x) << endl;
+        for(auto spot : arg->position)
+        {
+            message.at(spot) = arg->message.at(spot);
+        }
     }
-    cout << "Original message: " << endl;
+
+    cout << "Original message: ";
+
+    string decoded = "";
+    for(int x = 0; x < message.size(); x++)
+    {
+        decoded += message.at(x);   //doesnt output in terminal while debugging if i cout from here??
+    }
+
+    cout << decoded;    //YAYAYYA
+    
     return 0;
 }
