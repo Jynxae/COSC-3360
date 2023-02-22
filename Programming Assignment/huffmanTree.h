@@ -8,7 +8,6 @@ struct node{
     string code;
     node* right;
     node* left;
-    node* next;
     node(char chara, int freq)
     {
         let = chara;
@@ -27,4 +26,5 @@ public:
     }
     node* codeHuffmanTree(unordered_map<char,int>);
     void print(node*,string);
+    void decode(unordered_map<int, vector<int>>,node*);
 };
